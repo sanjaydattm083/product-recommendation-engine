@@ -1,37 +1,51 @@
 ﻿from fastapi import FastAPI, HTTPException
-from engine import recommend, related_lookup
 from typing import Optional
+import engine
 
-app = FastAPI(title="Product Recommendation Engine")
+app = FastAPI(title="Product Recommendation Engine v2")
+
+
+@app.get("/health")
+def health():
+    return engine.metadata
+
 
 @app.get("/products")
 def list_products(search: Optional[str] = None, limit: int = 20):
-    all_products = list(related_lookup.keys())
-    
+    items = list(engine.product_names.items())
+
     if search:
         search = search.strip().upper()
-        all_products = [p for p in all_products if search in p]
-    
+        items = [(code, name) for code, name in items if search in name.upper()]
+
+    items = sorted(items, key=lambda x: x[1])[:limit]
+
     return {
-        "total_matching": len(all_products),
-        "showing": min(limit, len(all_products)),
-        "products": sorted(all_products)[:limit]
+        "total_matching": len(items),
+        "products": [{"product_id": code, "name": name} for code, name in items]
     }
 
+
 @app.get("/recommend")
-def get_recommendations(product: str):
-    results = recommend(product)
-    
+def get_recommendations(product_id: str):
+    results = engine.recommend(product_id)
+
     if not results:
         raise HTTPException(
             status_code=404,
-            detail=f"No recommendations found for product: '{product}'. Check spelling or try a different product."
+            detail=f"No recommendations found for product_id: '{product_id}'. "
+                    f"Use /products?search=... to find a valid product_id."
         )
-    
+
     return {
-        "product": product,
+        "product_id": product_id,
+        "product_name": engine.get_product_name(product_id),
         "recommendations": [
-            {"name": name, "co_purchase_count": count}
-            for name, count in results
+            {
+                "product_id": pid,
+                "name": engine.get_product_name(pid),
+                "co_purchase_count": count
+            }
+            for pid, count in results
         ]
     }

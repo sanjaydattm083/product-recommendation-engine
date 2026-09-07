@@ -1,43 +1,43 @@
-﻿import pandas as pd
-from itertools import combinations
-from collections import Counter, defaultdict
+﻿import pickle
+import json
+import os
 
-print("Loading and preparing data... (this happens once, when the server starts)")
+RELATED_LOOKUP_FILE = "related_lookup.pkl"
+PRODUCT_NAMES_FILE = "product_names.pkl"
+METADATA_FILE = "lookup_metadata.json"
 
-# Load cleaned data
-df = pd.read_csv('clean_data.csv', dtype={'InvoiceNo': str})
 
-# Group products by order
-orders = df.groupby('InvoiceNo')['Description'].apply(list)
+def _load():
+    if not os.path.exists(RELATED_LOOKUP_FILE):
+        raise FileNotFoundError(
+            "No recommendation data found. Run 'py build_lookup.py' first "
+            "to generate related_lookup.pkl and product_names.pkl."
+        )
 
-# Count co-occurring pairs (same as before)
-pair_counts = Counter()
-for products in orders:
-    unique_products = list(set(products))
-    for pair in combinations(sorted(unique_products), 2):
-        pair_counts[pair] += 1
+    with open(RELATED_LOOKUP_FILE, 'rb') as f:
+        related_lookup = pickle.load(f)
 
-# NEW: build a fast lookup dictionary
-# For each product, store a list of (related_product, count), sorted by count
-related_lookup = defaultdict(list)
-for (a, b), count in pair_counts.items():
-    related_lookup[a].append((b, count))
-    related_lookup[b].append((a, count))
+    with open(PRODUCT_NAMES_FILE, 'rb') as f:
+        product_names = pickle.load(f)
 
-# Sort each product's related list by count, highest first
-for product in related_lookup:
-    related_lookup[product].sort(key=lambda x: x[1], reverse=True)
+    metadata = {}
+    if os.path.exists(METADATA_FILE):
+        with open(METADATA_FILE) as f:
+            metadata = json.load(f)
 
-print("Ready. Total products with recommendations:", len(related_lookup))
+    return related_lookup, product_names, metadata
 
-def recommend(product_name, top_n=5):
-    product_name = product_name.strip().upper()
-    if product_name not in related_lookup:
+
+related_lookup, product_names, metadata = _load()
+print(f"Loaded {len(related_lookup):,} products. Last updated: {metadata.get('last_updated', 'unknown')}")
+
+
+def recommend(product_id, top_n=5):
+    product_id = str(product_id).strip().upper()
+    if product_id not in related_lookup:
         return []
-    return related_lookup[product_name][:top_n]
+    return related_lookup[product_id][:top_n]
 
-# Quick test
-if __name__ == "__main__":
-    result = recommend('WHITE HANGING HEART T-LIGHT HOLDER')
-    for product, count in result:
-        print(f"  {product} ({count})")
+
+def get_product_name(product_id):
+    return product_names.get(str(product_id).strip().upper(), "Unknown product")
