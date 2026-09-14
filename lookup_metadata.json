@@ -1,7 +1,7 @@
 {
-  "last_updated": "2026-09-07T14:28:42.304608",
-  "total_products": 3772,
-  "total_raw_rows": 541912,
-  "total_cleaned_rows": 531170,
-  "max_order_size_cap": 100
+  "last_updated": "2026-09-13T19:55:54.892789",
+  "total_products": 8835,
+  "total_raw_rows": 16870,
+  "max_order_size_cap": 100,
+  "methodology": "V2 original - raw co-occurrence counts only, no lift/ensemble/personalization"
 }
